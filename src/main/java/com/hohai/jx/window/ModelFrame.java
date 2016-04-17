@@ -28,7 +28,7 @@ import java.util.Iterator;
  */
 public class ModelFrame {
     //菜单
-    private JFrame jFrame = new JFrame("csvModel2RDF");
+    private JFrame jFrame = new JFrame("csvAnnotator");
     private JMenuBar jMenuBar = new JMenuBar();
     JMenu file = new JMenu("文件");
     JMenuItem newItem = new JMenuItem("新建");
@@ -59,10 +59,14 @@ public class ModelFrame {
     JTree jTree = new JTree(rootNode);
     DefaultTreeModel treeModel = (DefaultTreeModel) jTree.getModel();
     JScrollPane left = new JScrollPane(jTree);
+    JPanel leftPanel = new JPanel();
+    JLabel leftLabel = new JLabel("元数据：");
     //右边
+    JLabel rightLable = new JLabel("元数据标注的CSV数据：");
     JTextArea jTextArea = new JTextArea();
     JScrollPane right = new JScrollPane(jTextArea);
-    JSplitPane jSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, false, left, right);
+    JPanel rightPanel = new JPanel();
+    JSplitPane jSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, false, leftPanel, rightPanel);
 
     //data model
     ObjectNode metaRootObject = null;
@@ -98,11 +102,19 @@ public class ModelFrame {
         //left
         jTree.setEditable(true);
         jTree.setShowsRootHandles(true);
-        left.setPreferredSize(new Dimension(300, 400));
+        //left.setPreferredSize(new Dimension(300, 400));
+        leftPanel.setLayout(new BorderLayout());
+        leftPanel.add(leftLabel , BorderLayout.NORTH);
+        leftPanel.add(left , BorderLayout.CENTER);
+        leftPanel.setPreferredSize(new Dimension(300 , 400));
         //right
         right.setPreferredSize(new Dimension(700, 400));
         jSplitPane.resetToPreferredSizes();
         jSplitPane.setDividerSize(1);
+        rightPanel.setLayout(new BorderLayout());
+        rightPanel.add(rightLable , BorderLayout.NORTH);
+        rightPanel.add(right , BorderLayout.CENTER);
+
         jFrame.add(jSplitPane);
         jFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         jFrame.pack();
