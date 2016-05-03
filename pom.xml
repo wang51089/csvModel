@@ -14,7 +14,8 @@
         <commons-io.version>2.4</commons-io.version>
         <gson.verson>2.5</gson.verson>
         <commons-lang3>3.3.2</commons-lang3>
-        <jena.version>3.0.1</jena.version>
+        <sesame.version>4.1.2</sesame.version>
+        <logback.version>1.0.13</logback.version>
     </properties>
 
     <dependencies>
@@ -51,10 +52,14 @@
             <version>${gson.verson}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.jena</groupId>
-            <artifactId>apache-jena-libs</artifactId>
-            <type>pom</type>
-            <version>${jena.version}</version>
+            <groupId>org.openrdf.sesame</groupId>
+            <artifactId>sesame-runtime</artifactId>
+            <version>${sesame.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
         </dependency>
 
     </dependencies>

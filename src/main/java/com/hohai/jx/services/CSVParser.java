@@ -18,7 +18,7 @@ public class CSVParser {
     public static Map<String, String> context = new HashMap<String, String>() {
         {
             put("csvw", "http://www.w3.org/ns/csvw#");
-            put("dc", "http://purl.org/dc/terms/");
+            put("dc", "http://purl.org/dc/elements/1.1/");
             put("dcat", "http://www.w3.org/ns/dcat#");
             put("foaf", "http://xmlns.com/foaf/0.1/");
             put("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
@@ -115,7 +115,7 @@ public class CSVParser {
         trim = dialect.get("trim").asText(trim);
     }
 
-    private ObjectNode addAnnotations(ObjectNode table, ObjectNode tableMetaData) throws Exception {
+    private ObjectNode addGroupTableAnnotations(ObjectNode groupTable, ObjectNode tableMetaData) throws Exception {
         Iterator<String> fieldNames = tableMetaData.fieldNames();
         while (fieldNames.hasNext()) {
             String fieldName = fieldNames.next();
@@ -123,25 +123,53 @@ public class CSVParser {
             if (fieldName.equals("@context") || fieldName.equals("dialect") || fieldName.equals("@type") || fieldName.equals("tableSchema")) {
                 ////do nothing
             } else if (fieldName.equals("@id")) {
-                table.remove("@id");
-                table.set("id", fieldNode);
+                groupTable.remove("@id");
+                groupTable.set("id", fieldNode);
             } else if (fieldName.contains(":")) {
                 String[] names = fieldName.split(":");
                 if (context.containsKey(names[0])) {
+                    groupTable.remove(fieldName);
                     StringBuilder newName = new StringBuilder();
                     newName.append(context.get(names[0]));
                     newName.append(names[1]);
-                    table.set(newName.toString(), fieldNode);
+                    groupTable.set(newName.toString(), fieldNode);
                 }
             } else {
-                table.set(fieldName, fieldNode);
+                groupTable.set(fieldName, fieldNode);
+            }
+        }
+        return groupTable;
+    }
+
+
+    private ObjectNode addSingleTableAnnotations(ObjectNode singleTable, ObjectNode tableMetaData) throws Exception {
+        Iterator<String> fieldNames = tableMetaData.fieldNames();
+        while (fieldNames.hasNext()) {
+            String fieldName = fieldNames.next();
+            JsonNode fieldNode = tableMetaData.get(fieldName);
+            if (fieldName.equals("@context") || fieldName.equals("dialect") || fieldName.equals("@type") || fieldName.equals("tableSchema")) {
+                ////do nothing
+            } else if (fieldName.equals("@id")) {
+                singleTable.remove("@id");
+                singleTable.set("id", fieldNode);
+            } else if (fieldName.contains(":")) {
+                String[] names = fieldName.split(":");
+                if (context.containsKey(names[0])) {
+                    singleTable.remove(fieldName);
+                    StringBuilder newName = new StringBuilder();
+                    newName.append(context.get(names[0]));
+                    newName.append(names[1]);
+                    singleTable.set(newName.toString(), fieldNode);
+                }
+            } else {
+                singleTable.set(fieldName, fieldNode);
             }
         }
 
         ObjectNode schemaNode = (ObjectNode) tableMetaData.get("tableSchema");
         //create column annotations
         ArrayNode schemaColumns = (ArrayNode) schemaNode.get("columns");
-        ArrayNode tableColumns = (ArrayNode) table.get("columns");
+        ArrayNode tableColumns = (ArrayNode) singleTable.get("columns");
         if (schemaColumns.size() != tableColumns.size()) {
             throw new Exception(" the model have different column number against the table schema! ");
         }
@@ -151,15 +179,15 @@ public class CSVParser {
             ObjectNode tableColumn = (ObjectNode) tableColumns.get(i);
             Iterator<String> names = schemaColumn.fieldNames();
             while (names.hasNext()) {
-                String addingName = names.next();
-                tableColumn.set(addingName, schemaColumn.get(addingName));
+                String fieldName = names.next();
+                tableColumn.set(fieldName, schemaColumn.get(fieldName));
             }
         }
         //create foreign keys annotations
         ArrayNode foreignKeysNode = (ArrayNode) schemaNode.get("foreignKeys");
         if (foreignKeysNode != null) {
             // add annotation to the table
-            table.set("foreignKeys", foreignKeysNode);
+            singleTable.set("foreignKeys", foreignKeysNode);
         }
         //create row annotations
         JsonNode primarykeyNode = schemaNode.get("primaryKey");
@@ -168,11 +196,11 @@ public class CSVParser {
                 Iterator<JsonNode> primaryIterator = ((ArrayNode) primarykeyNode).iterator();
                 while (primaryIterator.hasNext()) {
                     String primayKey = primaryIterator.next().asText();
-                    addPrimaryKey(table, primayKey);
+                    addPrimaryKey(singleTable, primayKey);
                 }
             } else {
                 String primayKey = primarykeyNode.asText();
-                addPrimaryKey(table, primayKey);
+                addPrimaryKey(singleTable, primayKey);
             }
         }
         JsonNode rowTitlesNode = schemaNode.get("rowTitles");
@@ -181,14 +209,14 @@ public class CSVParser {
                 Iterator<JsonNode> rowTitlesIterator = ((ArrayNode) rowTitlesNode).iterator();
                 while (rowTitlesIterator.hasNext()) {
                     String rowTitle = rowTitlesIterator.next().asText();
-                    addRowTitles(table, rowTitle);
+                    addRowTitles(singleTable, rowTitle);
                 }
             } else {
                 String rowTitle = rowTitlesNode.asText();
-                addRowTitles(table, rowTitle);
+                addRowTitles(singleTable, rowTitle);
             }
         }
-        return table;
+        return singleTable;
     }
 
     private ObjectNode addTableGroupAnnotations(ObjectNode tabularGroupModel, ObjectNode objectNode) throws Exception {
@@ -248,24 +276,24 @@ public class CSVParser {
     /**
      * create group tabular model according to the objectNode
      *
-     * @param objectNode
+     * @param groupTablesMetadata
      * @return
      */
-    private ObjectNode createAnnotatedTables(ObjectNode objectNode) throws Exception {
+    private ObjectNode createAnnotatedTables(ObjectNode groupTablesMetadata) throws Exception {
         //create table group model
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode groupOfTables = objectMapper.createObjectNode();
         ArrayNode tablesNode = groupOfTables.putArray("tables");
-        System.out.print("...");
         //parse the meta file to build model
-        ArrayNode tables = (ArrayNode) objectNode.get("tables");
+        ArrayNode tables = (ArrayNode) groupTablesMetadata.get("tables");
 
-        JsonNode groupDialect = objectNode.get("dialect");
-        JsonNode tableDirection = objectNode.get("tableDirection");
-        JsonNode transformations = objectNode.get("transformations");
-        JsonNode tableSchema = objectNode.get("tableSchema");
+        JsonNode groupDialect = groupTablesMetadata.get("dialect");
+        JsonNode tableDirection = groupTablesMetadata.get("tableDirection");
+        JsonNode transformations = groupTablesMetadata.get("transformations");
+        JsonNode tableSchema = groupTablesMetadata.get("tableSchema");
         if (tables != null) {
             Iterator<JsonNode> iterator = tables.iterator();
+            int tableNumber = 1;
             while (iterator.hasNext()) {
                 ObjectNode tableMetaData = (ObjectNode) iterator.next();
                 if (groupDialect != null && tableMetaData.get("dialect") == null) {
@@ -281,11 +309,14 @@ public class CSVParser {
                     tableMetaData.set("tableSchema", tableSchema);
                 }
                 ObjectNode table = parseTabularData(tableMetaData);
-                ObjectNode annotatedTable = addAnnotations(table, tableMetaData);
+                table.put("tableNumber" , tableNumber);
+
+                ObjectNode annotatedTable = addSingleTableAnnotations(table, tableMetaData);
                 tablesNode.add(annotatedTable);
+                tableNumber++;
             }
         }
-        addTableGroupAnnotations(groupOfTables, objectNode);
+        addTableGroupAnnotations(groupOfTables, groupTablesMetadata);
         return groupOfTables;
 
     }
