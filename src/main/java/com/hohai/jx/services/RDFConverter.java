@@ -76,7 +76,7 @@ public class RDFConverter {
                 //4.2
                 connection.add(G, CSVW.table, T);
                 //4.3
-                connection.add(G, RDF.TYPE, CSVW.Table);
+                connection.add(T, RDF.TYPE, CSVW.Table);
                 //4.4
                 String tableUrlString = table.get("url").asText();
                 IRI tableIRI = valueFactory.createIRI( tableUrlString );
@@ -105,7 +105,7 @@ public class RDFConverter {
                     connection.add(R, CSVW.rownum, valueFactory.createLiteral(n.asInt()));
                     //4.6.5
                     JsonNode ns = row.get("sourceNumber");
-                    connection.add(T, CSVW.url, valueFactory.createIRI(tableUrlString + "#row=" + ns.asInt()));
+                    connection.add(R, CSVW.url, valueFactory.createIRI(tableUrlString + "#row=" + ns.asInt()));
                     //4.6.6
                     ArrayNode titles = (ArrayNode) row.get("titles");
                     if( titles != null ){
