@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.hohai.jx.constants.Result;
 
 import java.io.*;
 import java.net.URL;
@@ -43,9 +44,23 @@ public class CSVParser {
     //meta data
     private ObjectNode metaData = null;
     private ObjectNode table = null;
+    private String path;
+
 
     public CSVParser(ObjectNode metaRootObject) {
         metaData = metaRootObject;
+    }
+
+    public CSVParser() {
+        /*File csvFile = new File(path);
+        Result result = null;
+        result = parseTabularData(path);
+        metaData = result.getEmbeddedMetadata();
+        table = result.getTable();*/
+    }
+
+    public ObjectNode getMetaData(){
+        return metaData;
     }
 
     public void setDefaultDialect() {
@@ -65,11 +80,11 @@ public class CSVParser {
         escapeCharacter = "\\";
     }
 
-    public CSVParser(String metaFilePath) throws IOException {
+    /*public CSVParser(String metaFilePath) throws IOException {
         File metaFile = new File(metaFilePath);
         ObjectMapper objectMapper = new ObjectMapper();
         metaData = (ObjectNode) objectMapper.readTree(metaFile);
-    }
+    }*/
 
     /**
      * entry: build the model
@@ -321,6 +336,148 @@ public class CSVParser {
 
     }
 
+    public Result parseTabularData(String path) throws Exception {
+        String urlString = "file:///"+path;
+        //get the tabular file
+        FileInputStream fileInputStream = new FileInputStream(path);
+        //load the dialect
+        setDefaultDialect();
+
+
+        FileInputStream inputStream = new FileInputStream( path );
+        //1.Create a new table T with the annotations
+        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectNode table = objectMapper.createObjectNode();
+        ArrayNode rows = table.putArray("rows");
+        ArrayNode columns = table.putArray("columns");
+        //2.Create a metadata document structure M that looks like bla bla
+        ObjectNode embeddedMetaData = objectMapper.createObjectNode();
+        embeddedMetaData.put("@context", "http://www.w3.org/ns/csvw");
+        ArrayNode comments = embeddedMetaData.putArray("rdfs:comment");
+        ObjectNode tableSchema = embeddedMetaData.putObject("tableSchema");
+        ArrayNode schemaColumns = tableSchema.putArray("columns");
+        //3.If the URL of the tabular data file being parsed is known, set the url property on M to that URL
+        table.put("url" , urlString);
+        //4.Set source row number to 1
+        int sourceRowNumber = 1;
+        //5.Read the file using the encoding
+        Reader reader = new InputStreamReader(inputStream, encoding);
+        BufferedReader bufferedReader = new BufferedReader(reader);
+        //6.Repeat the following the number of times indicated by skip rows
+        sourceRowNumber += skipRows;
+        for (int i = 0; i < skipRows; i++) {
+            String rowContent = bufferedReader.readLine();
+            if (commentPrefix != null && rowContent.startsWith(commentPrefix)) {
+                String comment = rowContent.substring(1).trim();
+                comments.add(comment);
+            } else if (!"".equals(rowContent)) {
+                comments.add(rowContent);
+            }
+        }
+        //7.Repeat the following the number of times indicated by header row count
+        sourceRowNumber += headerRowCount;
+        for (int i = 0; i < headerRowCount; i++) {
+            String rowContent = bufferedReader.readLine();
+            if (commentPrefix != null && rowContent.startsWith(commentPrefix)) {
+                String comment = rowContent.substring(1).trim();
+                comments.add(comment);
+            } else {
+                List<String> cells = parseCells(rowContent);
+                for (int j = 0; j < skipColumns; j++) {
+                    cells.remove(j);
+                }
+                for (int j = 0; j < cells.size(); j++) {
+                    if (cells.get(j).trim().equals("")) {
+                        continue;
+                    } else if (columns.get(j) == null) {
+                        ObjectNode column = columns.addObject();
+                        ArrayNode titles = column.putArray("title");
+                        titles.add(cells.get(j));
+                    } else {
+                        ObjectNode column = (ObjectNode) columns.get(j);
+                        ArrayNode titles = (ArrayNode) column.get("title");
+                        titles.add(cells.get(j));
+                    }
+                }
+            }
+        }
+        //8.If header row count is zero, create an empty column description object in M.tableSchema.columns for each column in the current row after skip columns.
+        if (headerRowCount == 0) {
+            String rowContent = bufferedReader.readLine();
+            List<String> cells = parseCells(rowContent);
+            for (int j = skipColumns; j < cells.size(); j++) {
+                ObjectNode column = schemaColumns.addObject();
+            }
+        }
+        //9.Set row number to 1.
+        int rowNumber = 1;
+        //10.While it is possible to read another row, do the following:
+        String rowContent;
+        while ((rowContent = bufferedReader.readLine()) != null) {
+            int sourceColumnNumber = 1;
+            if (commentPrefix != null && rowContent.startsWith(commentPrefix)) {
+                String comment = rowContent.substring(1).trim();
+                comments.add(comment);
+            } else {
+                //get  the   cells
+                List<String> cellList = parseCells(rowContent);
+                if (isEmptyRow(cellList) && skipBlankRows == true) {
+                    continue;
+                } else {
+                    //create a  row
+                    ObjectNode row = objectMapper.createObjectNode();
+                    row.set("table", table);
+                    row.put("number", rowNumber);
+                    row.put("sourceNumber", sourceRowNumber);
+                    ArrayNode primaryKey = row.putArray("primaryKey");
+                    ArrayNode referencedRows = row.putArray("referencedRows");
+                    ArrayNode rowCells = row.putArray("cells");
+                    rows.add(row);
+
+                    cellList = skipSkipColumns(cellList);
+                    sourceColumnNumber += skipColumns;
+                    for (int i = 0; i < cellList.size(); i++) {
+                        //create a column
+                        ObjectNode columni = (ObjectNode) columns.get(i);
+                        if (columni == null) {
+                            columni = objectMapper.createObjectNode();
+                            columni.set("table", table);
+                            columni.put("number", i + 1);
+                            columni.put("sourceNumber", sourceColumnNumber);
+                            columni.putArray("cells");
+                            columns.add(columni);
+                        }
+                        ArrayNode columnCells = (ArrayNode) columni.get("cells");
+
+                        //create a cell
+                        ObjectNode cell = objectMapper.createObjectNode();
+                        cell.set("table", table);
+                        cell.set("column", columni);
+                        cell.set("row", row);
+                        cell.put("stringValue", cellList.get(i));
+                        cell.put("value", cellList.get(i));
+
+                        //add the  cell to row cells  and   column cells
+                        columnCells.add(cell);
+                        rowCells.add(cell);
+                        sourceColumnNumber++;
+                    }
+                    rowNumber++;
+                }
+            }
+            sourceRowNumber++;
+        }
+        //11.If M.rdfs:comment is an empty array, remove the rdfs:comment property from M.
+        if (comments.size() == 0) {
+            embeddedMetaData.remove("rdfs:comment");
+        }
+        //12.Return the table T and the embedded metadata M
+        Result result = new Result();
+        result.setTable(table);
+        result.setEmbeddedMetadata(embeddedMetaData);
+        return result;
+    }
+
     /**
      * parse the tabular file according to the dialect to get a simple tabular model
      *
@@ -347,8 +504,9 @@ public class CSVParser {
         ObjectNode table = objectMapper.createObjectNode();
         ArrayNode rows = table.putArray("rows");
         ArrayNode columns = table.putArray("columns");
-
-
+        //3.If the URL of the tabular data file being parsed is known, set the url property on M to that URL
+        table.put("url" , urlString);
+        //4.Set source row number to 1
         int sourceRowNumber = 1;
         //5.Read the file using the encoding
         Reader reader = new InputStreamReader(inputStream, encoding);

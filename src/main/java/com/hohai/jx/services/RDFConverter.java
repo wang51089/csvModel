@@ -169,7 +169,7 @@ public class RDFConverter {
             model.setNamespace("xsd" , "http://www.w3.org/2001/XMLSchema#");
 
             StringWriter sw = new StringWriter();
-            Rio.write(model, sw, RDFFormat.TURTLE);
+            Rio.write(model, sw, RDFFormat.RDFXML);
             return sw.toString();
         } catch (RDFHandlerException e) {
             e.printStackTrace();

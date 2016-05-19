@@ -10,6 +10,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import com.hohai.jx.constants.Result;
 import com.hohai.jx.services.CSVParser;
 import com.hohai.jx.services.RDFConverter;
 import org.openrdf.repository.RepositoryException;
@@ -35,6 +36,7 @@ public class ModelFrame {
     JMenu file = new JMenu("File");
     JMenuItem newItem = new JMenuItem("new");
     JMenuItem openItem = new JMenuItem("open");
+    JMenuItem openCsv = new JMenuItem("open csv file");
     JMenuItem saveItem = new JMenuItem("save");
     JMenuItem exitItem = new JMenuItem("exit");
     JMenu format = new JMenu("Format");
@@ -78,6 +80,7 @@ public class ModelFrame {
         //菜单
         file.add(newItem);
         file.add(openItem);
+        file.add(openCsv);
         file.add(saveItem);
         file.add(exitItem);
         format.add(autoWrap);
@@ -390,6 +393,68 @@ public class ModelFrame {
                 objectNode.remove(fieldName);
             }
         });
+
+        openCsv.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                openFile.setVisible(true);
+                String fileString = openFile.getDirectory() + openFile.getFile();
+
+                try {
+                    Result result = new CSVParser().parseTabularData(fileString);
+                    metaRootObject = result.getEmbeddedMetadata();
+                } catch (Exception e1) {
+                    e1.printStackTrace();
+                }
+                rootNode.removeAllChildren();
+                buildObjectTreeNode(metaRootObject, rootNode);
+                jTree.updateUI();
+                jTree.expandRow(0);
+                modelItem.setEnabled(true);
+            }
+
+            void buildObjectTreeNode(ObjectNode objectNode, DefaultMutableTreeNode treeNode) {
+                Iterator<String> propertyNames = objectNode.fieldNames();
+                while (propertyNames.hasNext()) {
+                    String fieldName = propertyNames.next();
+                    JsonNode fieldNode = objectNode.get(fieldName);
+                    if (fieldNode.getNodeType() == JsonNodeType.OBJECT) {
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (Object)");
+                        treeNode.add(newChild);
+                        buildObjectTreeNode((ObjectNode) fieldNode, newChild);
+                    } else if (fieldNode.getNodeType() == JsonNodeType.ARRAY) {
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (Array)");
+                        treeNode.add(newChild);
+                        buildArrayTreeNode((ArrayNode) fieldNode, newChild);
+                    } else {
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   " + fieldNode.asText());
+                        treeNode.add(newChild);
+                    }
+                }
+            }
+
+            private void buildArrayTreeNode(ArrayNode arrayNode, DefaultMutableTreeNode treeNode) {
+                Iterator<JsonNode> elements = arrayNode.elements();
+                int i = 0;
+                while (elements.hasNext()) {
+                    JsonNode jsonNode = elements.next();
+                    if (jsonNode.getNodeType() == JsonNodeType.OBJECT) {
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (Object)");
+                        treeNode.add(newChild);
+                        buildObjectTreeNode((ObjectNode) jsonNode, newChild);
+                    } else if (jsonNode.getNodeType() == JsonNodeType.ARRAY) {
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (Array)");
+                        treeNode.add(newChild);
+                        buildArrayTreeNode((ArrayNode) jsonNode, newChild);
+                    } else {
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   " + jsonNode.asText());
+                        treeNode.add(newChild);
+                    }
+                    i++;
+                }
+            }
+        });
+
+
 
         //打开元数据
         openItem.addActionListener(new ActionListener() {
