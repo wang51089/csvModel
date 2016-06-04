@@ -31,29 +31,29 @@ import java.util.Iterator;
  */
 public class ModelFrame {
     //菜单
-    private JFrame jFrame = new JFrame("csv2rdf");
+    private JFrame jFrame = new JFrame("CSV2RDF");
     private JMenuBar jMenuBar = new JMenuBar();
-    JMenu file = new JMenu("File");
-    JMenuItem newItem = new JMenuItem("new");
-    JMenuItem openItem = new JMenuItem("open");
-    JMenuItem openCsv = new JMenuItem("open csv file");
-    JMenuItem saveItem = new JMenuItem("save");
-    JMenuItem exitItem = new JMenuItem("exit");
-    JMenu format = new JMenu("Format");
-    JCheckBoxMenuItem autoWrap = new JCheckBoxMenuItem("autowrap");
-    JMenuItem copyItem = new JMenuItem("copy");
-    JMenuItem pasteItem = new JMenuItem("paste");
-    JMenu edit = new JMenu("Edit");
-    JMenuItem add = new JMenuItem("add");
-    JMenuItem delete = new JMenuItem("delete");
-    JMenuItem modify = new JMenuItem("modify");
-    JMenuItem undo = new JMenuItem("undo");
-    JMenu operation = new JMenu("Operation");
-    JMenuItem modelItem = new JMenuItem("csv to annotated csv");
-    JMenuItem toRDFItem = new JMenuItem("convert csv to rdf");
-    JMenuItem saveResult = new JMenuItem("save result");
-    JMenu help = new JMenu("help");
-    JMenuItem helpItem = new JMenuItem("links");
+    JMenu file = new JMenu("文件");
+    JMenuItem newItem = new JMenuItem("新建");
+    JMenuItem openItem = new JMenuItem("打开");
+    JMenuItem openCsv = new JMenuItem("打开CSV文件");
+    JMenuItem saveItem = new JMenuItem("保存");
+    JMenuItem exitItem = new JMenuItem("退出");
+    JMenu format = new JMenu("格式");
+    JCheckBoxMenuItem autoWrap = new JCheckBoxMenuItem("自动换行");
+    JMenuItem copyItem = new JMenuItem("复制");
+    JMenuItem pasteItem = new JMenuItem("粘贴");
+    JMenu edit = new JMenu("编辑");
+    JMenuItem add = new JMenuItem("添加");
+    JMenuItem delete = new JMenuItem("删除");
+    JMenuItem modify = new JMenuItem("修改");
+    JMenuItem undo = new JMenuItem("后退");
+    JMenu operation = new JMenu("操作");
+    JMenuItem modelItem = new JMenuItem("建模");
+    JMenuItem toRDFItem = new JMenuItem("转换CSV到RDF");
+    JMenuItem saveResult = new JMenuItem("保存结果");
+    JMenu help = new JMenu("帮助");
+    JMenuItem helpItem = new JMenuItem("链接");
     //文件选取对话框
     FileDialog openFile = new FileDialog(jFrame, "Select metadata file", FileDialog.LOAD);
     FileDialog saveFile = new FileDialog(jFrame, "Save the metadata file", FileDialog.SAVE);
@@ -64,9 +64,9 @@ public class ModelFrame {
     DefaultTreeModel treeModel = (DefaultTreeModel) jTree.getModel();
     JScrollPane left = new JScrollPane(jTree);
     JPanel leftPanel = new JPanel();
-    JLabel leftLabel = new JLabel(" Metadata:");
+    JLabel leftLabel = new JLabel(" 元数据：");
     //右边
-    JLabel rightLable = new JLabel(" Output Result");
+    JLabel rightLable = new JLabel(" 输出结果：");
     JTextArea jTextArea = new JTextArea();
     JScrollPane right = new JScrollPane(jTextArea);
     JPanel rightPanel = new JPanel();
@@ -74,7 +74,7 @@ public class ModelFrame {
 
     //data model
     ObjectNode metaRootObject = null;
-    ObjectNode groupOfTables = null;
+    ObjectNode annotatedTables = null;
 
     public void init() {
         //菜单
@@ -129,10 +129,11 @@ public class ModelFrame {
         //保存结果事件
         toRDFItem.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
+                jTextArea.setText("");
                 RDFConverter rdfConverter = new RDFConverter();
                 String content = null;
                 try {
-                    content = rdfConverter.convert(groupOfTables);
+                    content = rdfConverter.convert(annotatedTables);
                 } catch (RepositoryException e1) {
                     e1.printStackTrace();
                 }
@@ -178,10 +179,10 @@ public class ModelFrame {
         //建模事件
         modelItem.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                CSVParser csvParser = null;
-                csvParser = new CSVParser(metaRootObject);
+                jTextArea.setText("");
+                CSVParser csvParser = new CSVParser(metaRootObject);
                 try {
-                    groupOfTables = csvParser.createTabularModel();
+                    annotatedTables = csvParser.createTabularData();
                 } catch (Exception e1) {
                     e1.printStackTrace();
                 }
@@ -196,23 +197,27 @@ public class ModelFrame {
             }
 
             private void displayModel() throws JsonProcessingException {
-                jTextArea.append("table group annotations:\n");
-                Iterator<String> fieldNames = groupOfTables.fieldNames();
+                //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                /*jTextArea.append("table group annotations:\n");*/
+                jTextArea.append("表组的标注：\n");
+                Iterator<String> fieldNames = annotatedTables.fieldNames();
                 while (fieldNames.hasNext()) {
                     String fieldName = fieldNames.next();
                     if (fieldName.equals("tables")) {
                         continue;
                     } else {
-                        JsonNode jsonNode = groupOfTables.get(fieldName);
+                        JsonNode jsonNode = annotatedTables.get(fieldName);
                         String jsonString = jsonNode.toString();
-                        jTextArea.append("\t" + fieldName + "   `s value is   " + jsonString);
+                        jTextArea.append("\t\"" + fieldName + "\"   :   " + jsonString);
                         jTextArea.append("\n");
                     }
                 }
                 jTextArea.append("\n");
-                ArrayNode tables = (ArrayNode) groupOfTables.get("tables");
+                ArrayNode tables = (ArrayNode) annotatedTables.get("tables");
                 for (int i = 0; i < tables.size(); i++) {
-                    jTextArea.append("table[" + (i + 1) + "] annoatations:\n");
+                    ///////////////////////////////////////////////////////////////////////////////////////////////
+                    /*jTextArea.append("table[" + (i + 1) + "] annoatations:\n");*/
+                    jTextArea.append("表[" + (i + 1) + "]的标注：\n");
                     ObjectNode table = (ObjectNode) tables.get(i);
                     fieldNames = table.fieldNames();
 
@@ -223,14 +228,16 @@ public class ModelFrame {
                         } else {
                             JsonNode jsonNode = table.get(fieldName);
                             String jsonString = jsonNode.toString();
-                            jTextArea.append("\t" + fieldName + "   `s value is   " + jsonString);
+                            jTextArea.append("\t\"" + fieldName + "\"   :   " + jsonString);
                             jTextArea.append("\n");
                         }
                     }
                     jTextArea.append("\n");
                     ArrayNode rows = (ArrayNode) table.get("rows");
                     for (int j = 0; j < rows.size(); j++) {
-                        jTextArea.append("row[" + (j + 1) + "] of table[" + (i + 1) + "] has annoatations:\n");
+                        //////////////////////////////////////////////////////////////////////////////////////////////
+                        /*jTextArea.append("row[" + (j + 1) + "] of table[" + (i + 1) + "] has annoatations:\n");*/
+                        jTextArea.append("行[" + (j + 1) + "]的标注：\n");
                         ObjectNode row = (ObjectNode) rows.get(j);
                         fieldNames = row.fieldNames();
 
@@ -239,7 +246,9 @@ public class ModelFrame {
                             if (fieldName.equals("cells")) {
                                 continue;
                             } else if (fieldName.equals("table")) {
-                                jTextArea.append("\ttable   `s value is   table[" + i + "]");
+                                //////////////////////////////////////////////////////////////////////////////////////
+                                /*jTextArea.append("\ttable   `s value is   table[" + i + "]");*/
+                                jTextArea.append("\t\"table\": table[" + i + "]");
                                 jTextArea.append("\n");
                             } else if (fieldName.equals("primaryKey")) {
                                 JsonNode jsonNode = row.get("primaryKey");
@@ -250,7 +259,7 @@ public class ModelFrame {
                                         jsonString.append(jsonNodes.get(ii).asText() + ",");
                                     }
                                     jsonString.deleteCharAt(jsonString.length() - 1);
-                                    jTextArea.append("\t" + fieldName + "   `s value is   " + jsonString.toString());
+                                    jTextArea.append("\t\"" + fieldName + "\"   :   " + jsonString);
                                     jTextArea.append("\n");
                                 }
                             } else if( fieldName.equals("referencedRows") ){
@@ -258,7 +267,7 @@ public class ModelFrame {
                             }else {
                                 JsonNode jsonNode = row.get(fieldName);
                                 String jsonString = jsonNode.toString();
-                                jTextArea.append("\t" + fieldName + "   `s value is   " + jsonString);
+                                jTextArea.append("\t\"" + fieldName + "\"   :   " + jsonString );
                                 jTextArea.append("\n");
                             }
                         }
@@ -266,7 +275,8 @@ public class ModelFrame {
                     }
                     ArrayNode columns = (ArrayNode) table.get("columns");
                     for (int k = 0; k < columns.size(); k++) {
-                        jTextArea.append("column[" + (k + 1) + "] of table[" + (i + 1) + "] has annoatations:\n");
+                        /*jTextArea.append("column[" + (k + 1) + "] of table[" + (i + 1) + "] has annoatations:\n");*/
+                        jTextArea.append("列[" + (k + 1) + "]的标注：\n");
                         ObjectNode column = (ObjectNode) columns.get(k);
                         fieldNames = column.fieldNames();
 
@@ -275,12 +285,12 @@ public class ModelFrame {
                             if (fieldName.equals("cells")) {
                                 continue;
                             } else if (fieldName.equals("table")) {
-                                jTextArea.append("\ttable   `s value is   table[" + i + "]");
+                                jTextArea.append("\t\"table\": table[" + i + "]");
                                 jTextArea.append("\n");
                             } else {
                                 JsonNode jsonNode = column.get(fieldName);
                                 String jsonString = jsonNode.toString();
-                                jTextArea.append("\t" + fieldName + "   `s value is   " + jsonString);
+                                jTextArea.append("\t\"" + fieldName + "\"   :   " + jsonString);
                                 jTextArea.append("\n");
                             }
                         }
@@ -289,29 +299,31 @@ public class ModelFrame {
 
                     for (int m = 0; m < rows.size(); m++) {
                         for (int n = 0; n < columns.size(); n++) {
-                            jTextArea.append("table[" + (i + 1) + "], cell[" + (m + 1) + "," + (n + 1) + "] has annotations:\n");
+                            ////////////////////////////////////////////////////////////////////////////////////////////////////
+                            /*jTextArea.append("table[" + (i + 1) + "], cell[" + (m + 1) + "," + (n + 1) + "] has annotations:\n");*/
+                            jTextArea.append("单元格[" + (m + 1) + "," + (n + 1) + "]的标注：\n");
                             ObjectNode cell = (ObjectNode) rows.get(m).get("cells").get(n);
                             Iterator<String> fieldNames1 = cell.fieldNames();
 
                             while (fieldNames1.hasNext()) {
                                 String fieldName = fieldNames1.next();
                                 if (fieldName.equals("table")) {
-                                    jTextArea.append("\ttable   `s value is   table[" + i + "]");
+                                    jTextArea.append("\t\"table\": table[" + i + "]");
                                     jTextArea.append("\n");
                                 } else if (fieldName.equals("row")) {
                                     ObjectNode row = (ObjectNode) cell.get("row");
                                     int rowNum = row.get("number").asInt();
-                                    jTextArea.append("\trow   `s value is   row[" + rowNum + "]");
+                                    jTextArea.append("\t\"row\": row[" + rowNum + "]");
                                     jTextArea.append("\n");
                                 } else if (fieldName.equals("column")) {
                                     ObjectNode column = (ObjectNode) cell.get("column");
                                     int columnNum = column.get("number").asInt();
-                                    jTextArea.append("\tcolumn   `s value is   column[" + columnNum + "]");
+                                    jTextArea.append("\t\"column\": column[" + columnNum + "]");
                                     jTextArea.append("\n");
                                 } else {
                                     JsonNode jsonNode = cell.get(fieldName);
                                     String jsonString = jsonNode.toString();
-                                    jTextArea.append("\t" + fieldName + "   `s value is   " + jsonString);
+                                    jTextArea.append("\t\"" + fieldName + "\"   :   " + jsonString);
                                     jTextArea.append("\n");
                                 }
                             }
@@ -334,10 +346,10 @@ public class ModelFrame {
         //增加元数据
         add.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                JLabel label1 = new JLabel("property name:");
+                JLabel label1 = new JLabel("属性名：");
                 JTextField propertyName = new JTextField();
                 propertyName.setColumns(3);
-                JLabel label2 = new JLabel("property value:");
+                JLabel label2 = new JLabel("属性值：");
                 JTextField propertyValue = new JTextField();
                 propertyValue.setColumns(3);
                 JPanel jPanel = new JPanel();
@@ -345,7 +357,7 @@ public class ModelFrame {
                 jPanel.add(propertyName);
                 jPanel.add(label2);
                 jPanel.add(propertyValue);
-                int result = JOptionPane.showConfirmDialog(jFrame, jPanel, "create new annotation", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+                int result = JOptionPane.showConfirmDialog(jFrame, jPanel, "属性编辑", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
                 if (result == JOptionPane.OK_OPTION) {
                     String name = propertyName.getText().trim();
                     String value = propertyValue.getText().trim();
@@ -399,17 +411,20 @@ public class ModelFrame {
                 openFile.setVisible(true);
                 String fileString = openFile.getDirectory() + openFile.getFile();
 
-                try {
-                    Result result = new CSVParser().parseTabularData(fileString);
-                    metaRootObject = result.getEmbeddedMetadata();
-                } catch (Exception e1) {
-                    e1.printStackTrace();
+                if( !fileString.contains("null") ){
+                    jTextArea.setText("");
+                    try {
+                        Result result = new CSVParser().parseTabularData(fileString);
+                        metaRootObject = result.getEmbeddedMetadata();;
+                    } catch (Exception e1) {
+                        e1.printStackTrace();
+                    }
+                    rootNode.removeAllChildren();
+                    buildObjectTreeNode(metaRootObject, rootNode);
+                    jTree.updateUI();
+                    jTree.expandRow(0);
+                    modelItem.setEnabled(true);
                 }
-                rootNode.removeAllChildren();
-                buildObjectTreeNode(metaRootObject, rootNode);
-                jTree.updateUI();
-                jTree.expandRow(0);
-                modelItem.setEnabled(true);
             }
 
             void buildObjectTreeNode(ObjectNode objectNode, DefaultMutableTreeNode treeNode) {
@@ -418,11 +433,11 @@ public class ModelFrame {
                     String fieldName = propertyNames.next();
                     JsonNode fieldNode = objectNode.get(fieldName);
                     if (fieldNode.getNodeType() == JsonNodeType.OBJECT) {
-                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (Object)");
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (对象)");
                         treeNode.add(newChild);
                         buildObjectTreeNode((ObjectNode) fieldNode, newChild);
                     } else if (fieldNode.getNodeType() == JsonNodeType.ARRAY) {
-                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (Array)");
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (数组)");
                         treeNode.add(newChild);
                         buildArrayTreeNode((ArrayNode) fieldNode, newChild);
                     } else {
@@ -438,11 +453,11 @@ public class ModelFrame {
                 while (elements.hasNext()) {
                     JsonNode jsonNode = elements.next();
                     if (jsonNode.getNodeType() == JsonNodeType.OBJECT) {
-                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (Object)");
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (对象)");
                         treeNode.add(newChild);
                         buildObjectTreeNode((ObjectNode) jsonNode, newChild);
                     } else if (jsonNode.getNodeType() == JsonNodeType.ARRAY) {
-                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (Array)");
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (数组)");
                         treeNode.add(newChild);
                         buildArrayTreeNode((ArrayNode) jsonNode, newChild);
                     } else {
@@ -462,18 +477,21 @@ public class ModelFrame {
                 openFile.setVisible(true);
                 String fileString = openFile.getDirectory() + openFile.getFile();
 
-                File metaFile = new File(fileString);
-                ObjectMapper objectMapper = new ObjectMapper();
-                try {
-                    metaRootObject = (ObjectNode) objectMapper.readTree(metaFile);
-                } catch (IOException e1) {
-                    e1.printStackTrace();
+                if( !fileString.contains("null") ){
+                    jTextArea.setText("");
+                    File metaFile = new File(fileString);
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    try {
+                        metaRootObject = (ObjectNode) objectMapper.readTree(metaFile);
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
+                    rootNode.removeAllChildren();
+                    buildObjectTreeNode(metaRootObject, rootNode);
+                    jTree.updateUI();
+                    jTree.expandRow(0);
+                    modelItem.setEnabled(true);
                 }
-                rootNode.removeAllChildren();
-                buildObjectTreeNode(metaRootObject, rootNode);
-                jTree.updateUI();
-                jTree.expandRow(0);
-                modelItem.setEnabled(true);
             }
 
             void buildObjectTreeNode(ObjectNode objectNode, DefaultMutableTreeNode treeNode) {
@@ -482,11 +500,11 @@ public class ModelFrame {
                     String fieldName = propertyNames.next();
                     JsonNode fieldNode = objectNode.get(fieldName);
                     if (fieldNode.getNodeType() == JsonNodeType.OBJECT) {
-                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (Object)");
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (对象)");
                         treeNode.add(newChild);
                         buildObjectTreeNode((ObjectNode) fieldNode, newChild);
                     } else if (fieldNode.getNodeType() == JsonNodeType.ARRAY) {
-                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (Array)");
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(fieldName + "   >   (数组)");
                         treeNode.add(newChild);
                         buildArrayTreeNode((ArrayNode) fieldNode, newChild);
                     } else {
@@ -502,11 +520,11 @@ public class ModelFrame {
                 while (elements.hasNext()) {
                     JsonNode jsonNode = elements.next();
                     if (jsonNode.getNodeType() == JsonNodeType.OBJECT) {
-                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (Object)");
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (对象)");
                         treeNode.add(newChild);
                         buildObjectTreeNode((ObjectNode) jsonNode, newChild);
                     } else if (jsonNode.getNodeType() == JsonNodeType.ARRAY) {
-                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (Array)");
+                        DefaultMutableTreeNode newChild = new DefaultMutableTreeNode(i + "   >   (数组)");
                         treeNode.add(newChild);
                         buildArrayTreeNode((ArrayNode) jsonNode, newChild);
                     } else {

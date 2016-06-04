@@ -59,7 +59,7 @@ public class CSVParser {
         table = result.getTable();*/
     }
 
-    public ObjectNode getMetaData(){
+    public ObjectNode getMetaData() {
         return metaData;
     }
 
@@ -92,7 +92,7 @@ public class CSVParser {
      * @return
      * @throws Exception
      */
-    public ObjectNode createTabularModel() throws Exception {
+    public ObjectNode createTabularData() throws Exception {
         JsonNode type = metaData.get("@type");
         JsonNode tables = metaData.get("tables");
         if ((type != null && "TableGroup".equalsIgnoreCase(type.asText())) || tables != null) {
@@ -109,7 +109,8 @@ public class CSVParser {
     }
 
     private void setDialect(JsonNode dialect) {
-        encoding = dialect.get("encoding").asText(encoding);
+        JsonNode node =  dialect.get("encoding");
+        encoding = node==null?encoding:node.asText(encoding);
         ArrayNode lineTerminatorsNode = (ArrayNode) dialect.get("lineTerminators");
         if (lineTerminatorsNode != null) {
             lineTerminators = new String[lineTerminatorsNode.size()];
@@ -117,17 +118,28 @@ public class CSVParser {
                 lineTerminators[i] = lineTerminatorsNode.get(i).asText();
             }
         }
-        quoteChar = dialect.get("quoteChar").asText(quoteChar);
-        doubleQuote = dialect.get("doubleQuote").asBoolean(doubleQuote);
-        skipRows = dialect.get("skipRows").asInt(skipRows);
-        commentPrefix = dialect.get("commentPrefix").asText(commentPrefix);
-        header = dialect.get("header").asBoolean(header);
-        headerRowCount = dialect.get("headerRowCount").asInt(headerRowCount);
-        delimiter = dialect.get("delimiter").asText(delimiter);
-        skipColumns = dialect.get("skipColumns").asInt(skipColumns);
-        skipBlankRows = dialect.get("skipBlankRows").asBoolean(skipBlankRows);
-        skipInitialSpace = dialect.get("skipInitialSpace").asBoolean(skipInitialSpace);
-        trim = dialect.get("trim").asText(trim);
+        node = dialect.get("quoteChar");
+        quoteChar = node==null?quoteChar:node.asText(quoteChar);
+        node = dialect.get("doubleQuote");
+        doubleQuote = node==null?doubleQuote:node.asBoolean(doubleQuote);
+        node = dialect.get("skipRows");
+        skipRows = node==null?skipRows:node.asInt(skipRows);
+        node = dialect.get("commentPrefix");
+        commentPrefix = node==null?commentPrefix:node.asText(commentPrefix);
+        node = dialect.get("header");
+        header = node==null?header:node.asBoolean(header);
+        node = dialect.get("headerRowCount");
+        headerRowCount = node==null?headerRowCount:node.asInt(headerRowCount);
+        node = dialect.get("delimiter");
+        delimiter = node==null?delimiter:node.asText(delimiter);
+        node = dialect.get("skipColumns");
+        skipColumns = node==null?skipColumns:node.asInt(skipColumns);
+        node = dialect.get("skipBlankRows");
+        skipBlankRows = node==null?skipBlankRows:node.asBoolean(skipBlankRows);
+        node = dialect.get("skipInitialSpace");
+        skipInitialSpace = node==null?skipInitialSpace:node.asBoolean(skipInitialSpace);
+        node = dialect.get("trim");
+        trim = node==null?trim:node.asText(trim);
     }
 
     private ObjectNode addGroupTableAnnotations(ObjectNode groupTable, ObjectNode tableMetaData) throws Exception {
@@ -182,53 +194,64 @@ public class CSVParser {
         }
 
         ObjectNode schemaNode = (ObjectNode) tableMetaData.get("tableSchema");
-        //create column annotations
-        ArrayNode schemaColumns = (ArrayNode) schemaNode.get("columns");
-        ArrayNode tableColumns = (ArrayNode) singleTable.get("columns");
-        if (schemaColumns.size() != tableColumns.size()) {
-            throw new Exception(" the model have different column number against the table schema! ");
-        }
-        int columnCount = tableColumns.size();
-        for (int i = 0; i < columnCount; i++) {
-            ObjectNode schemaColumn = (ObjectNode) schemaColumns.get(i);
-            ObjectNode tableColumn = (ObjectNode) tableColumns.get(i);
-            Iterator<String> names = schemaColumn.fieldNames();
-            while (names.hasNext()) {
-                String fieldName = names.next();
-                tableColumn.set(fieldName, schemaColumn.get(fieldName));
+        if (schemaNode != null) {
+            //create column annotations
+            ArrayNode schemaColumns = (ArrayNode) schemaNode.get("columns");
+            for( int kk = 0 ; kk < schemaColumns.size() ; kk++ ){
+                ObjectNode schemaColumn = (ObjectNode) schemaColumns.get(kk);
+                if( schemaColumn.get("virtual")!= null && schemaColumn.get("virtual").asBoolean() == true ){
+                    schemaColumns.remove(kk);
+                    kk--;
+                }
             }
-        }
-        //create foreign keys annotations
-        ArrayNode foreignKeysNode = (ArrayNode) schemaNode.get("foreignKeys");
-        if (foreignKeysNode != null) {
-            // add annotation to the table
-            singleTable.set("foreignKeys", foreignKeysNode);
-        }
-        //create row annotations
-        JsonNode primarykeyNode = schemaNode.get("primaryKey");
-        if (primarykeyNode != null) {
-            if (primarykeyNode.getNodeType().equals("ARRAY")) {
-                Iterator<JsonNode> primaryIterator = ((ArrayNode) primarykeyNode).iterator();
-                while (primaryIterator.hasNext()) {
-                    String primayKey = primaryIterator.next().asText();
+            ArrayNode tableColumns = (ArrayNode) singleTable.get("columns");
+            if (schemaColumns.size() != tableColumns.size()) {
+                throw new Exception(" the model have different column number against the table schema! ");
+            }
+            int columnCount = tableColumns.size();
+            for (int i = 0; i < columnCount; i++) {
+                ObjectNode schemaColumn = (ObjectNode) schemaColumns.get(i);
+                ObjectNode tableColumn = (ObjectNode) tableColumns.get(i);
+                Iterator<String> names = schemaColumn.fieldNames();
+                while (names.hasNext()) {
+                    String fieldName = names.next();
+                    tableColumn.set(fieldName, schemaColumn.get(fieldName));
+                }
+            }
+
+
+            //create foreign keys annotations
+            ArrayNode foreignKeysNode = (ArrayNode) schemaNode.get("foreignKeys");
+            if (foreignKeysNode != null) {
+                // add annotation to the table
+                singleTable.set("foreignKeys", foreignKeysNode);
+            }
+            //create row annotations
+            JsonNode primarykeyNode = schemaNode.get("primaryKey");
+            if (primarykeyNode != null) {
+                if (primarykeyNode.getNodeType().equals("ARRAY")) {
+                    Iterator<JsonNode> primaryIterator = ((ArrayNode) primarykeyNode).iterator();
+                    while (primaryIterator.hasNext()) {
+                        String primayKey = primaryIterator.next().asText();
+                        addPrimaryKey(singleTable, primayKey);
+                    }
+                } else {
+                    String primayKey = primarykeyNode.asText();
                     addPrimaryKey(singleTable, primayKey);
                 }
-            } else {
-                String primayKey = primarykeyNode.asText();
-                addPrimaryKey(singleTable, primayKey);
             }
-        }
-        JsonNode rowTitlesNode = schemaNode.get("rowTitles");
-        if (rowTitlesNode != null) {
-            if (rowTitlesNode.getNodeType().equals("ARRAY")) {
-                Iterator<JsonNode> rowTitlesIterator = ((ArrayNode) rowTitlesNode).iterator();
-                while (rowTitlesIterator.hasNext()) {
-                    String rowTitle = rowTitlesIterator.next().asText();
+            JsonNode rowTitlesNode = schemaNode.get("rowTitles");
+            if (rowTitlesNode != null) {
+                if (rowTitlesNode.getNodeType().equals("ARRAY")) {
+                    Iterator<JsonNode> rowTitlesIterator = ((ArrayNode) rowTitlesNode).iterator();
+                    while (rowTitlesIterator.hasNext()) {
+                        String rowTitle = rowTitlesIterator.next().asText();
+                        addRowTitles(singleTable, rowTitle);
+                    }
+                } else {
+                    String rowTitle = rowTitlesNode.asText();
                     addRowTitles(singleTable, rowTitle);
                 }
-            } else {
-                String rowTitle = rowTitlesNode.asText();
-                addRowTitles(singleTable, rowTitle);
             }
         }
         return singleTable;
@@ -291,21 +314,21 @@ public class CSVParser {
     /**
      * create group tabular model according to the objectNode
      *
-     * @param groupTablesMetadata
+     * @param tablesMetadata
      * @return
      */
-    private ObjectNode createAnnotatedTables(ObjectNode groupTablesMetadata) throws Exception {
+    private ObjectNode createAnnotatedTables(ObjectNode tablesMetadata) throws Exception {
         //create table group model
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode groupOfTables = objectMapper.createObjectNode();
         ArrayNode tablesNode = groupOfTables.putArray("tables");
         //parse the meta file to build model
-        ArrayNode tables = (ArrayNode) groupTablesMetadata.get("tables");
+        ArrayNode tables = (ArrayNode) tablesMetadata.get("tables");
 
-        JsonNode groupDialect = groupTablesMetadata.get("dialect");
-        JsonNode tableDirection = groupTablesMetadata.get("tableDirection");
-        JsonNode transformations = groupTablesMetadata.get("transformations");
-        JsonNode tableSchema = groupTablesMetadata.get("tableSchema");
+        JsonNode groupDialect = tablesMetadata.get("dialect");
+        JsonNode tableDirection = tablesMetadata.get("tableDirection");
+        JsonNode transformations = tablesMetadata.get("transformations");
+        JsonNode tableSchema = tablesMetadata.get("tableSchema");
         if (tables != null) {
             Iterator<JsonNode> iterator = tables.iterator();
             int tableNumber = 1;
@@ -324,27 +347,26 @@ public class CSVParser {
                     tableMetaData.set("tableSchema", tableSchema);
                 }
                 ObjectNode table = parseTabularData(tableMetaData);
-                table.put("tableNumber" , tableNumber);
+                table.put("tableNumber", tableNumber);
 
                 ObjectNode annotatedTable = addSingleTableAnnotations(table, tableMetaData);
                 tablesNode.add(annotatedTable);
                 tableNumber++;
             }
         }
-        addTableGroupAnnotations(groupOfTables, groupTablesMetadata);
+        addTableGroupAnnotations(groupOfTables, tablesMetadata);
         return groupOfTables;
 
     }
 
     public Result parseTabularData(String path) throws Exception {
-        String urlString = "file:///"+path;
+        String urlString = "file:///" + path;
         //get the tabular file
         FileInputStream fileInputStream = new FileInputStream(path);
         //load the dialect
         setDefaultDialect();
 
-
-        FileInputStream inputStream = new FileInputStream( path );
+        FileInputStream inputStream = new FileInputStream(path);
         //1.Create a new table T with the annotations
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode table = objectMapper.createObjectNode();
@@ -357,7 +379,7 @@ public class CSVParser {
         ObjectNode tableSchema = embeddedMetaData.putObject("tableSchema");
         ArrayNode schemaColumns = tableSchema.putArray("columns");
         //3.If the URL of the tabular data file being parsed is known, set the url property on M to that URL
-        table.put("url" , urlString);
+        embeddedMetaData.put("url" , urlString);
         //4.Set source row number to 1
         int sourceRowNumber = 1;
         //5.Read the file using the encoding
@@ -383,37 +405,36 @@ public class CSVParser {
                 comments.add(comment);
             } else {
                 List<String> cells = parseCells(rowContent);
-                for (int j = 0; j < skipColumns; j++) {
-                    cells.remove(j);
-                }
+                cells = skipSkipColumns(cells);
                 for (int j = 0; j < cells.size(); j++) {
                     if (cells.get(j).trim().equals("")) {
                         continue;
-                    } else if (columns.get(j) == null) {
-                        ObjectNode column = columns.addObject();
-                        ArrayNode titles = column.putArray("title");
+                    } else if (schemaColumns.get(j) == null) {
+                        ObjectNode schemaColumn = schemaColumns.addObject();
+                        ArrayNode titles = schemaColumn.putArray("title");
                         titles.add(cells.get(j));
                     } else {
-                        ObjectNode column = (ObjectNode) columns.get(j);
-                        ArrayNode titles = (ArrayNode) column.get("title");
+                        ObjectNode schemaColumn = (ObjectNode) schemaColumns.get(j);
+                        ArrayNode titles = (ArrayNode) schemaColumn.get("title");
                         titles.add(cells.get(j));
                     }
                 }
             }
         }
         //8.If header row count is zero, create an empty column description object in M.tableSchema.columns for each column in the current row after skip columns.
-        if (headerRowCount == 0) {
-            String rowContent = bufferedReader.readLine();
-            List<String> cells = parseCells(rowContent);
-            for (int j = skipColumns; j < cells.size(); j++) {
-                ObjectNode column = schemaColumns.addObject();
+        String rowContent = bufferedReader.readLine();
+        if( headerRowCount == 0 ){
+            List<String> vcells = parseCells(rowContent);
+            vcells = skipSkipColumns(vcells);
+            int columnCount = vcells.size();
+            for( int kkk = 0 ; kkk < columnCount ; kkk++ ){
+                schemaColumns.addObject();
             }
         }
         //9.Set row number to 1.
         int rowNumber = 1;
         //10.While it is possible to read another row, do the following:
-        String rowContent;
-        while ((rowContent = bufferedReader.readLine()) != null) {
+        do {
             int sourceColumnNumber = 1;
             if (commentPrefix != null && rowContent.startsWith(commentPrefix)) {
                 String comment = rowContent.substring(1).trim();
@@ -466,7 +487,8 @@ public class CSVParser {
                 }
             }
             sourceRowNumber++;
-        }
+        } while ((rowContent = bufferedReader.readLine()) != null);
+
         //11.If M.rdfs:comment is an empty array, remove the rdfs:comment property from M.
         if (comments.size() == 0) {
             embeddedMetaData.remove("rdfs:comment");
@@ -493,10 +515,9 @@ public class CSVParser {
         InputStream inputStream = urlConnection.getInputStream();
         //load the dialect
         ObjectNode dialect = (ObjectNode) tableMetaData.get("dialect");
+        setDefaultDialect();
         if (dialect != null) {
             setDialect(dialect);
-        } else {
-            setDefaultDialect();
         }
 
         //1.Create a new table T with the annotations
@@ -505,7 +526,7 @@ public class CSVParser {
         ArrayNode rows = table.putArray("rows");
         ArrayNode columns = table.putArray("columns");
         //3.If the URL of the tabular data file being parsed is known, set the url property on M to that URL
-        table.put("url" , urlString);
+        table.put("url", urlString);
         //4.Set source row number to 1
         int sourceRowNumber = 1;
         //5.Read the file using the encoding
@@ -672,12 +693,12 @@ public class CSVParser {
                 if (quoted == false) {
                     quoted = true;
                     if (currenctCellValue.length() > 0) {
-                        throw new Exception(" currentCellValue is no empty! ");
+                        throw new Exception(" currentCellValue is no empty! " + "\n" + rowContent + "\n" + i);
                     }
                 } else {
                     quoted = false;
                     if (chars[i + 1] != delimiter.charAt(0)) {
-                        throw new Exception(" the end quoter is not ended with delimiter! ");
+                        throw new Exception(" the end quoter is not ended with delimiter! " + "\n" + rowContent + "\n" + i);
                     }
                 }
             } else if (chars[i] == delimiter.charAt(0)) {
